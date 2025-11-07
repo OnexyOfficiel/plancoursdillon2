@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Carte Cour Dillon - APC31</title>
+<title>Cour Dillon - v1</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
@@ -86,10 +86,11 @@ map.fitBounds(bounds);
 
 // === Icônes DPS ===
 const dpsIcons = [
-  {name:"Poste de secours", icon:"healing"},
-  {name:"Véhicule", icon:"directions_car"},
+  {name:"Psa", icon:"health_cross"},
+  {name:"Vehicule", icon:"directions_car"},
   {name:"Bateau", icon:"directions_boat"},
-
+  {name:"Paddle", icon:"kayaking"},
+  {name:"Scene", icon:"festival"},
   {name:"Droite", icon:"arrow_forward"},
   {name:"Gauche", icon:"arrow_back"},
   {name:"Pin", icon:"keep"},
@@ -176,5 +177,6 @@ map.on('zoom', ()=>{
 </script>
 </body>
 </html>
+
 
 
