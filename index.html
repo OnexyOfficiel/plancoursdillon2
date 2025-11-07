@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Carte Cour Dillon</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <style>
+    html, body { margin:0; height:100%; }
+    #map { height:100vh; width:100%; }
+    .leaflet-popup-content { font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    // === CONFIGURATION FIREBASE ===
+    const firebaseConfig = {
+        apiKey: "AIzaSyAEHQ9-vxIgvYL2useK7ThkSkhavvwyISg",
+        authDomain: "plan-cour-dillon.firebaseapp.com",
+        databaseURL: "https://plan-cour-dillon-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "plan-cour-dillon",
+        storageBucket: "plan-cour-dillon.firebasestorage.app",
+        messagingSenderId: "859820983805",
+        appId: "1:859820983805:web:1a6c31e8bc10953c390594",
+        measurementId: "G-3D43TV1R8Q"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // === CONFIG LEAFLET ===
+    const w = 17730, h = 6012;
+    const map = L.map('map', {
+      crs: L.CRS.Simple,
+      minZoom: -2
+    });
+
+    const imageUrl = 'https://i.postimg.cc/3rvJ7k3G/Cour-Dillon.png';
+    const bounds = [[0,0], [h, w]];
+    L.imageOverlay(imageUrl, bounds).addTo(map);
+    map.fitBounds(bounds);
+
+    // === AFFICHER LES MARQUEURS EXISTANTS ===
+    const markersRef = db.ref('markers');
+    markersRef.on('value', snapshot => {
+      map.eachLayer(layer => {
+        if (layer instanceof L.Marker) map.removeLayer(layer);
+      });
+      const data = snapshot.val();
+      if (data) {
+        Object.entries(data).forEach(([id, marker]) => {
+          const m = L.marker(marker.latlng).addTo(map);
+          m.bindPopup(marker.name || 'Poste').openPopup();
+        });
+      }
+    });
+
+    // === AJOUTER UN MARQUEUR AU CLIC ===
+    map.on('click', e => {
+      const name = prompt("Nom du point (ex : Poste de secours, PC...)");
+      if (!name) return;
+      const newMarker = {
+        latlng: e.latlng,
+        name: name
+      };
+      db.ref('markers').push(newMarker);
+    });
+  </script>
+</body>
+</html>
