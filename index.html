@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Carte Cour Dillon - DPS</title>
+<title>Carte Cour Dillon - APC31</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
@@ -86,12 +86,13 @@ map.fitBounds(bounds);
 
 // === Icônes DPS ===
 const dpsIcons = [
-  {name:"Ambulance", icon:"local_hospital"},
-  {name:"Croix de vie", icon:"medical_services"},
+  {name:"Ambulance", icon:"ambulance"},
+  {name:"Croix de vie", icon:"local_hospital"},
   {name:"Maison / PC", icon:"home"},
-  {name:"Défibrillateur", icon:"healing"},
-  {name:"Poste de secours", icon:"health_and_safety"},
-  {name:"Pompiers", icon:"fire_extinguisher"}
+  {name:"groupe", icon:"group"},
+  {name:"Poste de secours", icon:"healing"},
+  {name:"Véhicule", icon:"directions_car"},
+  {name:"Bateau", icon:"directions_boat"},
 ];
 
 // === Création d’un divIcon avec nom sous l’icône ===
@@ -174,3 +175,4 @@ map.on('zoom', ()=>{
 </script>
 </body>
 </html>
+
