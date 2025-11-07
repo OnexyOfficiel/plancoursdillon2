@@ -5,29 +5,75 @@
   <title>Carte Cour Dillon</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <!-- Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+  <!-- html2canvas + jsPDF pour export PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
   <style>
     html, body { margin:0; height:100%; }
     #map { height:100vh; width:100%; }
     .leaflet-popup-content { font-size: 14px; }
+    #toolbar {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 9999;
+      background: rgba(255,255,255,0.9);
+      border-radius: 10px;
+      padding: 8px 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      font-family: sans-serif;
+    }
+    #toolbar select, #toolbar button {
+      margin: 4px 0;
+      padding: 6px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    #toolbar button {
+      cursor: pointer;
+      background: #007bff;
+      color: white;
+      border: none;
+    }
+    #toolbar button:hover {
+      background: #0056b3;
+    }
   </style>
 </head>
 <body>
+  <div id="toolbar">
+    <div><b>Type de point :</b></div>
+    <select id="iconSelect">
+      <option value="red">🚑 Poste de secours (rouge)</option>
+      <option value="blue">🏕️ PC / Zone (bleu)</option>
+      <option value="green">🚪 Entrée / Sortie (vert)</option>
+      <option value="orange">⚠️ Danger / Info (orange)</option>
+    </select><br>
+    <button id="exportPDF">📄 Télécharger la carte</button>
+  </div>
   <div id="map"></div>
+
   <script>
     // === CONFIGURATION FIREBASE ===
     const firebaseConfig = {
-        apiKey: "AIzaSyAEHQ9-vxIgvYL2useK7ThkSkhavvwyISg",
-        authDomain: "plan-cour-dillon.firebaseapp.com",
-        databaseURL: "https://plan-cour-dillon-default-rtdb.europe-west1.firebasedatabase.app",
-        projectId: "plan-cour-dillon",
-        storageBucket: "plan-cour-dillon.firebasestorage.app",
-        messagingSenderId: "859820983805",
-        appId: "1:859820983805:web:1a6c31e8bc10953c390594",
-        measurementId: "G-3D43TV1R8Q"
+      apiKey: "AIzaSyAEHQ9-vxIgvYL2useK7ThkSkhavvwyISg",
+      authDomain: "plan-cour-dillon.firebaseapp.com",
+      databaseURL: "https://plan-cour-dillon-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "plan-cour-dillon",
+      storageBucket: "plan-cour-dillon.firebasestorage.app",
+      messagingSenderId: "859820983805",
+      appId: "1:859820983805:web:1a6c31e8bc10953c390594",
+      measurementId: "G-3D43TV1R8Q"
     };
-
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
@@ -35,13 +81,42 @@
     const w = 17730, h = 6012;
     const map = L.map('map', {
       crs: L.CRS.Simple,
-      minZoom: -2
+      minZoom: -5, // 👈 permet de dézoomer plus
+      maxZoom: 2
     });
 
     const imageUrl = 'https://i.postimg.cc/3rvJ7k3G/Cour-Dillon.png';
     const bounds = [[0,0], [h, w]];
     L.imageOverlay(imageUrl, bounds).addTo(map);
     map.fitBounds(bounds);
+
+    // === Définition des icônes ===
+    const icons = {
+      red: L.icon({
+        iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -32]
+      }),
+      blue: L.icon({
+        iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -32]
+      }),
+      green: L.icon({
+        iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -32]
+      }),
+      orange: L.icon({
+        iconUrl: 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -32]
+      })
+    };
 
     // === AFFICHER LES MARQUEURS EXISTANTS ===
     const markersRef = db.ref('markers');
@@ -52,8 +127,8 @@
       const data = snapshot.val();
       if (data) {
         Object.entries(data).forEach(([id, marker]) => {
-          const m = L.marker(marker.latlng).addTo(map);
-          m.bindPopup(marker.name || 'Poste').openPopup();
+          const m = L.marker(marker.latlng, { icon: icons[marker.color] || icons.red }).addTo(map);
+          m.bindPopup(marker.name || 'Poste');
         });
       }
     });
@@ -62,11 +137,29 @@
     map.on('click', e => {
       const name = prompt("Nom du point (ex : Poste de secours, PC...)");
       if (!name) return;
+      const color = document.getElementById('iconSelect').value;
       const newMarker = {
         latlng: e.latlng,
-        name: name
+        name: name,
+        color: color
       };
       db.ref('markers').push(newMarker);
+    });
+
+    // === EXPORTER LA CARTE EN PDF ===
+    document.getElementById('exportPDF').addEventListener('click', async () => {
+      const mapElement = document.getElementById('map');
+      html2canvas(mapElement, { useCORS: true }).then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+          orientation: canvas.width > canvas.height ? 'l' : 'p',
+          unit: 'px',
+          format: [canvas.width, canvas.height]
+        });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save('Carte_Cour_Dillon.pdf');
+      });
     });
   </script>
 </body>
