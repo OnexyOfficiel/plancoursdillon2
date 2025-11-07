@@ -86,13 +86,14 @@ map.fitBounds(bounds);
 
 // === Icônes DPS ===
 const dpsIcons = [
-  {name:"Ambulance", icon:"ambulance"},
-  {name:"Croix de vie", icon:"local_hospital"},
-  {name:"Maison / PC", icon:"home"},
-  {name:"groupe", icon:"group"},
   {name:"Poste de secours", icon:"healing"},
   {name:"Véhicule", icon:"directions_car"},
   {name:"Bateau", icon:"directions_boat"},
+
+  {name:"Droite", icon:"arrow_forward"},
+  {name:"Gauche", icon:"arrow_back"},
+  {name:"Pin", icon:"keep"},
+  {name:"VPSP", icon:"ambulance"},
 ];
 
 // === Création d’un divIcon avec nom sous l’icône ===
@@ -175,4 +176,5 @@ map.on('zoom', ()=>{
 </script>
 </body>
 </html>
+
 
