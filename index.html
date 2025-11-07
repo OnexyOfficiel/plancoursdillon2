@@ -21,6 +21,7 @@ html, body { margin:0; height:100%; }
   white-space: nowrap;
   font-family: sans-serif;
   text-align: center;
+  pointer-events: auto;
 }
 .point-div span.name {
   background: rgba(255,255,255,0.8);
@@ -30,6 +31,18 @@ html, body { margin:0; height:100%; }
   margin-top:2px;
 }
 .leaflet-popup-content { font-size: 14px; }
+.emoji-picker {
+  display:flex;
+  flex-wrap: wrap;
+  max-height:300px;
+  overflow-y:auto;
+}
+.emoji-picker span {
+  cursor:pointer;
+  font-size:24px;
+  margin:3px;
+}
+.emoji-picker span:hover { transform: scale(1.3); }
 </style>
 </head>
 <body>
@@ -56,7 +69,7 @@ const map = L.map('map', {
   crs: L.CRS.Simple,
   minZoom: -5,
   maxZoom: 5,
-  scrollWheelZoom:true,  // zoom fluide
+  scrollWheelZoom:true,
   zoomControl:true
 });
 const imageUrl = 'https://i.postimg.cc/3rvJ7k3G/Cour-Dillon.png';
@@ -64,13 +77,17 @@ const bounds = [[0,0],[h,w]];
 L.imageOverlay(imageUrl,bounds).addTo(map);
 map.fitBounds(bounds);
 
-// === DivIcon pour emoji + nom ===
-function createDivIcon(emoji, name) {
+// Liste d’emojis complète (exemple réduit, tu peux ajouter toutes les catégories Unicode)
+const emojiList = ["🚑","🏕️","🚪","⚠️","🍎","⚽","🎯","🎉","📌","💡","⭐","🔥","🐶","🐱","🛑","🏁"];
+
+// === DivIcon pour emoji + nom avec taille fixe ===
+function createDivIcon(emoji,name){
   return L.divIcon({
-    className: 'point-div',
-    html: `<div>${emoji}<span class="name">${name}</span></div>`,
+    className:'point-div',
+    html:`<div>${emoji}<span class="name">${name}</span></div>`,
     iconSize: [40,40],
-    iconAnchor: [20,40]
+    iconAnchor: [20,40],
+    popupAnchor:[0,-40]
   });
 }
 
@@ -82,27 +99,52 @@ markersRef.on('value', snapshot=>{
   const data = snapshot.val() || {};
   Object.values(leafletMarkers).forEach(m=>map.removeLayer(m));
   leafletMarkers = {};
-  Object.entries(data).forEach(([id, marker])=>{
-    const m = L.marker(marker.latlng, {icon:createDivIcon(marker.emoji, marker.name)}).addTo(map);
+  Object.entries(data).forEach(([id,marker])=>{
+    const m = L.marker(marker.latlng, {icon:createDivIcon(marker.emoji,marker.name)}).addTo(map);
     const popupContent = document.createElement('div');
     popupContent.innerHTML = `<b>${marker.name}</b><br><button id="del-${id}">Supprimer</button>`;
     m.bindPopup(popupContent);
-    leafletMarkers[id] = m;
-    popupContent.querySelector(`#del-${id}`).addEventListener('click', ()=>{
+    leafletMarkers[id]=m;
+    popupContent.querySelector(`#del-${id}`).addEventListener('click',()=>{
       db.ref('markers/'+id).remove();
       map.closePopup();
     });
   });
 });
 
-// === Ajouter un point ===
+// === Ajouter un point avec choix emoji ===
 map.on('click', e=>{
   const name = prompt("Nom du point (ex: Poste de secours, PC...)");
   if(!name) return;
-  const emoji = prompt("Choisissez un emoji pour le point (copiez-collez l'emoji que vous voulez)","");
-  if(!emoji) return;
-  const newMarker = {latlng:e.latlng, name:name, emoji:emoji};
-  db.ref('markers').push(newMarker);
+
+  // Créer une popup div pour choisir emoji
+  const popupContent = document.createElement('div');
+  popupContent.innerHTML = '<b>Choisissez un emoji :</b><br>';
+  const picker = document.createElement('div');
+  picker.className = 'emoji-picker';
+  emojiList.forEach(emj=>{
+    const span = document.createElement('span');
+    span.textContent=emj;
+    span.addEventListener('click', ()=>{
+      const newMarker = {latlng:e.latlng, name:name, emoji:emj};
+      db.ref('markers').push(newMarker);
+      map.closePopup();
+    });
+    picker.appendChild(span);
+  });
+  popupContent.appendChild(picker);
+  L.popup()
+    .setLatLng(e.latlng)
+    .setContent(popupContent)
+    .openOn(map);
+});
+
+// === Garder la taille des points fixe même au zoom ===
+map.on('zoom', ()=>{
+  Object.values(leafletMarkers).forEach(marker=>{
+    const zoomScale = 1/Math.pow(2,map.getZoom()); // ajuste à ton besoin
+    marker.getElement().style.transform=`scale(${zoomScale})`;
+  });
 });
 </script>
 </body>
