@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Carte Cour Dillon</title>
+<title>Carte Cour Dillon - Emoji Points</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
@@ -10,22 +10,33 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
-<!-- html2canvas + jsPDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
 <style>
 html, body { margin:0; height:100%; }
 #map { height:100vh; width:100%; }
+.point-div {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  font-size: 24px;
+  white-space: nowrap;
+  font-family: sans-serif;
+  text-align: center;
+}
+.point-div span.name {
+  background: rgba(255,255,255,0.8);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-top:2px;
+}
 .leaflet-popup-content { font-size: 14px; }
-.icon-choice { margin: 4px; cursor:pointer; font-size:24px; }
-.icon-choice:hover { transform: scale(1.2); }
 </style>
 </head>
 <body>
 <div id="map"></div>
 
 <script>
+// === FIREBASE ===
 const firebaseConfig = {
   apiKey: "AIzaSyAEHQ9-vxIgvYL2useK7ThkSkhavvwyISg",
   authDomain: "plan-cour-dillon.firebaseapp.com",
@@ -39,69 +50,59 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// Leaflet
+// === Leaflet ===
 const w = 17730, h = 6012;
-const map = L.map('map', { crs: L.CRS.Simple, minZoom: -5, maxZoom: 2 });
+const map = L.map('map', {
+  crs: L.CRS.Simple,
+  minZoom: -5,
+  maxZoom: 5,
+  scrollWheelZoom:true,  // zoom fluide
+  zoomControl:true
+});
 const imageUrl = 'https://i.postimg.cc/3rvJ7k3G/Cour-Dillon.png';
-const bounds = [[0,0], [h, w]];
-L.imageOverlay(imageUrl, bounds).addTo(map);
+const bounds = [[0,0],[h,w]];
+L.imageOverlay(imageUrl,bounds).addTo(map);
 map.fitBounds(bounds);
 
-// Icônes Google couleur
-const icons = {
-  red: L.icon({ iconUrl:'https://maps.google.com/mapfiles/ms/icons/red-dot.png', iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32] }),
-  blue: L.icon({ iconUrl:'https://maps.google.com/mapfiles/ms/icons/blue-dot.png', iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32] }),
-  green: L.icon({ iconUrl:'https://maps.google.com/mapfiles/ms/icons/green-dot.png', iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32] }),
-  orange: L.icon({ iconUrl:'https://maps.google.com/mapfiles/ms/icons/orange-dot.png', iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32] })
-};
+// === DivIcon pour emoji + nom ===
+function createDivIcon(emoji, name) {
+  return L.divIcon({
+    className: 'point-div',
+    html: `<div>${emoji}<span class="name">${name}</span></div>`,
+    iconSize: [40,40],
+    iconAnchor: [20,40]
+  });
+}
 
-// Charger les points existants
+// === Charger les points existants ===
 const markersRef = db.ref('markers');
 let leafletMarkers = {};
 
-markersRef.on('value', snapshot => {
+markersRef.on('value', snapshot=>{
   const data = snapshot.val() || {};
-  // Supprimer tous les markers
-  Object.values(leafletMarkers).forEach(m => map.removeLayer(m));
+  Object.values(leafletMarkers).forEach(m=>map.removeLayer(m));
   leafletMarkers = {};
-  Object.entries(data).forEach(([id, marker]) => {
-    const m = L.marker(marker.latlng, { icon: icons[marker.color] || icons.red }).addTo(map);
+  Object.entries(data).forEach(([id, marker])=>{
+    const m = L.marker(marker.latlng, {icon:createDivIcon(marker.emoji, marker.name)}).addTo(map);
     const popupContent = document.createElement('div');
     popupContent.innerHTML = `<b>${marker.name}</b><br><button id="del-${id}">Supprimer</button>`;
     m.bindPopup(popupContent);
     leafletMarkers[id] = m;
-    // Supprimer
-    popupContent.querySelector(`#del-${id}`).addEventListener('click', () => {
+    popupContent.querySelector(`#del-${id}`).addEventListener('click', ()=>{
       db.ref('markers/'+id).remove();
       map.closePopup();
     });
   });
 });
 
-// Ajouter un point au clic
-map.on('click', e => {
-  const name = prompt("Nom du point (ex : Poste de secours, PC...)");
-  if (!name) return;
-
-  // Créer une popup pour choisir l'icône
-  const iconSelection = L.popup()
-    .setLatLng(e.latlng)
-    .setContent(`<div>
-      <div class="icon-choice" data-color="red">🚑</div>
-      <div class="icon-choice" data-color="blue">🏕️</div>
-      <div class="icon-choice" data-color="green">🚪</div>
-      <div class="icon-choice" data-color="orange">⚠️</div>
-    </div>`)
-    .openOn(map);
-
-  iconSelection.getElement().querySelectorAll('.icon-choice').forEach(el => {
-    el.addEventListener('click', () => {
-      const color = el.dataset.color;
-      const newMarker = { latlng:e.latlng, name:name, color:color };
-      db.ref('markers').push(newMarker);
-      map.closePopup();
-    });
-  });
+// === Ajouter un point ===
+map.on('click', e=>{
+  const name = prompt("Nom du point (ex: Poste de secours, PC...)");
+  if(!name) return;
+  const emoji = prompt("Choisissez un emoji pour le point (copiez-collez l'emoji que vous voulez)","");
+  if(!emoji) return;
+  const newMarker = {latlng:e.latlng, name:name, emoji:emoji};
+  db.ref('markers').push(newMarker);
 });
 </script>
 </body>
